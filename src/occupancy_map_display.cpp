@@ -30,197 +30,192 @@
  *
  */
 
-
-#include "octomap_rviz_plugins/occupancy_map_display.h"
+#include "social_octomap_rviz_plugins/occupancy_map_display.h"
 
 #include "rviz/visualization_manager.h"
 #include "rviz/properties/int_property.h"
 #include "rviz/properties/ros_topic_property.h"
 
-#include <octomap/octomap.h>
-#include <octomap_msgs/Octomap.h>
-#include <octomap_msgs/conversions.h>
+#include <social_octomap/social_octomap.h>
+#include <social_octomap_msgs/SocialOctomap.h>
+#include <social_octomap_msgs/conversions.h>
 
 using namespace rviz;
 
-namespace octomap_rviz_plugin
+namespace social_octomap_rviz_plugin
 {
 
-static const std::size_t max_octree_depth_ = sizeof(unsigned short) * 8;
+  static const std::size_t max_octree_depth_ = sizeof(unsigned short) * 8;
 
-OccupancyMapDisplay::OccupancyMapDisplay()
-  : rviz::MapDisplay()
-  , octree_depth_ (max_octree_depth_)
-{
-
-  topic_property_->setName("Octomap Binary Topic");
-  topic_property_->setMessageType(QString::fromStdString(ros::message_traits::datatype<octomap_msgs::Octomap>()));
-  topic_property_->setDescription("octomap_msgs::OctomapBinary topic to subscribe to.");
-
-  tree_depth_property_ = new IntProperty("Max. Octree Depth",
-                                         octree_depth_,
-                                         "Defines the maximum tree depth",
-                                         this,
-                                         SLOT (updateTreeDepth() ));
-}
-
-OccupancyMapDisplay::~OccupancyMapDisplay()
-{
-  unsubscribe();
-}
-
-void OccupancyMapDisplay::onInitialize()
-{
-  rviz::MapDisplay::onInitialize();
-}
-
-void OccupancyMapDisplay::updateTreeDepth()
-{
-  octree_depth_ = tree_depth_property_->getInt();
-}
-
-void OccupancyMapDisplay::updateTopic()
-{
-  unsubscribe();
-  reset();
-  subscribe();
-  context_->queueRender();
-}
-
-void OccupancyMapDisplay::subscribe()
-{
-  if (!isEnabled())
+  OccupancyMapDisplay::OccupancyMapDisplay()
+      : rviz::MapDisplay(), octree_depth_(max_octree_depth_)
   {
-    return;
+
+    topic_property_->setName("SocialOctomap Binary Topic");
+    topic_property_->setMessageType(QString::fromStdString(ros::message_traits::datatype<social_octomap_msgs::SocialOctomap>()));
+    topic_property_->setDescription("social_octomap_msgs::SocialOctomapBinary topic to subscribe to.");
+
+    tree_depth_property_ = new IntProperty("Max. Octree Depth",
+                                           octree_depth_,
+                                           "Defines the maximum tree depth",
+                                           this,
+                                           SLOT(updateTreeDepth()));
   }
 
-  try
+  OccupancyMapDisplay::~OccupancyMapDisplay()
   {
     unsubscribe();
+  }
 
-    const std::string& topicStr = topic_property_->getStdString();
+  void OccupancyMapDisplay::onInitialize()
+  {
+    rviz::MapDisplay::onInitialize();
+  }
 
-    if (!topicStr.empty())
+  void OccupancyMapDisplay::updateTreeDepth()
+  {
+    octree_depth_ = tree_depth_property_->getInt();
+  }
+
+  void OccupancyMapDisplay::updateTopic()
+  {
+    unsubscribe();
+    reset();
+    subscribe();
+    context_->queueRender();
+  }
+
+  void OccupancyMapDisplay::subscribe()
+  {
+    if (!isEnabled())
     {
+      return;
+    }
 
-      sub_.reset(new message_filters::Subscriber<octomap_msgs::Octomap>());
+    try
+    {
+      unsubscribe();
 
-      sub_->subscribe(threaded_nh_, topicStr, 5);
-      sub_->registerCallback(boost::bind(&OccupancyMapDisplay::handleOctomapBinaryMessage, this, boost::placeholders::_1));
+      const std::string &topicStr = topic_property_->getStdString();
 
+      if (!topicStr.empty())
+      {
+
+        sub_.reset(new message_filters::Subscriber<social_octomap_msgs::SocialOctomap>());
+
+        sub_->subscribe(threaded_nh_, topicStr, 5);
+        sub_->registerCallback(boost::bind(&OccupancyMapDisplay::handleSocialOctomapBinaryMessage, this, boost::placeholders::_1));
+      }
+    }
+    catch (ros::Exception &e)
+    {
+      setStatus(StatusProperty::Error, "Topic", (std::string("Error subscribing: ") + e.what()).c_str());
     }
   }
-  catch (ros::Exception& e)
+
+  void OccupancyMapDisplay::unsubscribe()
   {
-    setStatus(StatusProperty::Error, "Topic", (std::string("Error subscribing: ") + e.what()).c_str());
+    clear();
+
+    try
+    {
+      // reset filters
+      sub_.reset();
+    }
+    catch (ros::Exception &e)
+    {
+      setStatus(StatusProperty::Error, "Topic", (std::string("Error unsubscribing: ") + e.what()).c_str());
+    }
   }
-}
 
-void OccupancyMapDisplay::unsubscribe()
-{
-  clear();
-
-  try
+  template <typename OcTreeType>
+  void TemplatedOccupancyMapDisplay<OcTreeType>::handleSocialOctomapBinaryMessage(const social_octomap_msgs::SocialOctomapConstPtr &msg)
   {
-    // reset filters
-    sub_.reset();
-  }
-  catch (ros::Exception& e)
-  {
-    setStatus(StatusProperty::Error, "Topic", (std::string("Error unsubscribing: ") + e.what()).c_str());
-  }
-}
 
+    ROS_DEBUG("Received SocialOctomapBinary message (size: %d bytes)", (int)msg->data.size());
 
-template <typename OcTreeType>
-void TemplatedOccupancyMapDisplay<OcTreeType>::handleOctomapBinaryMessage(const octomap_msgs::OctomapConstPtr& msg)
-{
+    // creating octree
+    OcTreeType *social_octomap = NULL;
+    social_octomap::AbstractOcTree *tree = social_octomap_msgs::msgToMap(*msg);
+    if (tree)
+    {
+      social_octomap = dynamic_cast<OcTreeType *>(tree);
+    }
 
-  ROS_DEBUG("Received OctomapBinary message (size: %d bytes)", (int)msg->data.size());
+    if (!social_octomap)
+    {
+      this->setStatusStd(StatusProperty::Error, "Message", "Failed to create octree structure");
+      return;
+    }
 
-  // creating octree
-  OcTreeType* octomap = NULL;
-  octomap::AbstractOcTree* tree = octomap_msgs::msgToMap(*msg);
-  if (tree){
-    octomap = dynamic_cast<OcTreeType*>(tree);
-  }
+    // get dimensions of octree
+    double minX, minY, minZ, maxX, maxY, maxZ;
+    social_octomap->getMetricMin(minX, minY, minZ);
+    social_octomap->getMetricMax(maxX, maxY, maxZ);
+    social_octomap::point3d minPt = social_octomap::point3d(minX, minY, minZ);
 
-  if (!octomap)
-  {
-    this->setStatusStd(StatusProperty::Error, "Message", "Failed to create octree structure");
-    return;
-  }
+    unsigned int tree_depth = social_octomap->getTreeDepth();
 
-  // get dimensions of octree
-  double minX, minY, minZ, maxX, maxY, maxZ;
-  octomap->getMetricMin(minX, minY, minZ);
-  octomap->getMetricMax(maxX, maxY, maxZ);
-  octomap::point3d minPt = octomap::point3d(minX, minY, minZ);
+    social_octomap::OcTreeKey paddedMinKey = social_octomap->coordToKey(minPt);
 
-  unsigned int tree_depth = octomap->getTreeDepth();
+    nav_msgs::OccupancyGrid::Ptr occupancy_map(new nav_msgs::OccupancyGrid());
 
-  octomap::OcTreeKey paddedMinKey = octomap->coordToKey(minPt);
+    unsigned int width, height;
+    double res;
 
-  nav_msgs::OccupancyGrid::Ptr occupancy_map (new nav_msgs::OccupancyGrid());
+    unsigned int ds_shift = tree_depth - octree_depth_;
 
-  unsigned int width, height;
-  double res;
+    occupancy_map->header = msg->header;
+    occupancy_map->info.resolution = res = social_octomap->getNodeSize(octree_depth_);
+    occupancy_map->info.width = width = (maxX - minX) / res + 1;
+    occupancy_map->info.height = height = (maxY - minY) / res + 1;
+    occupancy_map->info.origin.position.x = minX - (res / (float)(1 << ds_shift)) + res;
+    occupancy_map->info.origin.position.y = minY - (res / (float)(1 << ds_shift));
 
-  unsigned int ds_shift = tree_depth-octree_depth_;
-
-  occupancy_map->header = msg->header;
-  occupancy_map->info.resolution = res = octomap->getNodeSize(octree_depth_);
-  occupancy_map->info.width = width = (maxX-minX) / res + 1;
-  occupancy_map->info.height = height = (maxY-minY) / res + 1;
-  occupancy_map->info.origin.position.x = minX  - (res / (float)(1<<ds_shift) ) + res;
-  occupancy_map->info.origin.position.y = minY  - (res / (float)(1<<ds_shift) );
-
-  occupancy_map->data.clear();
-  occupancy_map->data.resize(width*height, -1);
+    occupancy_map->data.clear();
+    occupancy_map->data.resize(width * height, -1);
 
     // traverse all leafs in the tree:
-  unsigned int treeDepth = std::min<unsigned int>(octree_depth_, octomap->getTreeDepth());
-  for (typename OcTreeType::iterator it = octomap->begin(treeDepth), end = octomap->end(); it != end; ++it)
-  {
-    bool occupied = octomap->isNodeOccupied(*it);
-    int intSize = 1 << (octree_depth_ - it.getDepth());
-
-    octomap::OcTreeKey minKey=it.getIndexKey();
-
-    for (int dx = 0; dx < intSize; dx++)
+    unsigned int treeDepth = std::min<unsigned int>(octree_depth_, social_octomap->getTreeDepth());
+    for (typename OcTreeType::iterator it = social_octomap->begin(treeDepth), end = social_octomap->end(); it != end; ++it)
     {
-      for (int dy = 0; dy < intSize; dy++)
+      bool occupied = social_octomap->isNodeOccupied(*it);
+      int intSize = 1 << (octree_depth_ - it.getDepth());
+
+      social_octomap::OcTreeKey minKey = it.getIndexKey();
+
+      for (int dx = 0; dx < intSize; dx++)
       {
-        int posX = std::max<int>(0, minKey[0] + dx - paddedMinKey[0]);
-        posX>>=ds_shift;
-
-        int posY = std::max<int>(0, minKey[1] + dy - paddedMinKey[1]);
-        posY>>=ds_shift;
-
-        int idx = width * posY + posX;
-
-        if (occupied)
-          occupancy_map->data[idx] = 100;
-        else if (occupancy_map->data[idx] == -1)
+        for (int dy = 0; dy < intSize; dy++)
         {
-          occupancy_map->data[idx] = 0;
-        }
+          int posX = std::max<int>(0, minKey[0] + dx - paddedMinKey[0]);
+          posX >>= ds_shift;
 
+          int posY = std::max<int>(0, minKey[1] + dy - paddedMinKey[1]);
+          posY >>= ds_shift;
+
+          int idx = width * posY + posX;
+
+          if (occupied)
+            occupancy_map->data[idx] = 100;
+          else if (occupancy_map->data[idx] == -1)
+          {
+            occupancy_map->data[idx] = 0;
+          }
+        }
       }
     }
 
+    delete social_octomap;
+
+    this->incomingMap(occupancy_map);
   }
-
-  delete octomap;
-
-  this->incomingMap(occupancy_map);
-}
 
 } // namespace rviz
 
 #include <pluginlib/class_list_macros.hpp>
-typedef octomap_rviz_plugin::TemplatedOccupancyMapDisplay<octomap::OcTree> OcTreeMapDisplay;
-typedef octomap_rviz_plugin::TemplatedOccupancyMapDisplay<octomap::OcTreeStamped> OcTreeStampedMapDisplay;
+typedef social_octomap_rviz_plugin::TemplatedOccupancyMapDisplay<social_octomap::OcTree> OcTreeMapDisplay;
+typedef social_octomap_rviz_plugin::TemplatedOccupancyMapDisplay<social_octomap::OcTreeStamped> OcTreeStampedMapDisplay;
 
-PLUGINLIB_EXPORT_CLASS( OcTreeMapDisplay, rviz::Display)
-PLUGINLIB_EXPORT_CLASS( OcTreeStampedMapDisplay, rviz::Display)
+PLUGINLIB_EXPORT_CLASS(OcTreeMapDisplay, rviz::Display)
+PLUGINLIB_EXPORT_CLASS(OcTreeStampedMapDisplay, rviz::Display)

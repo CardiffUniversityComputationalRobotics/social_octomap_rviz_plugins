@@ -33,7 +33,7 @@
 #ifndef RVIZ_OCCUPANCY_MAP_DISPLAY_H
 #define RVIZ_OCCUPANCY_MAP_DISPLAY_H
 
-#ifndef Q_MOC_RUN 
+#ifndef Q_MOC_RUN
 
 #include <qobject.h>
 
@@ -41,47 +41,48 @@
 
 #include "rviz/default_plugin/map_display.h"
 
-#include <octomap_msgs/Octomap.h>
+#include <social_octomap_msgs/SocialOctomap.h>
 
-#include <octomap/OcTreeStamped.h>
+#include <social_octomap/OcTreeStamped.h>
 
 #include <message_filters/subscriber.h>
 
 #endif
 
-namespace octomap_rviz_plugin
+namespace social_octomap_rviz_plugin
 {
 
-class OccupancyMapDisplay: public rviz::MapDisplay
-{
-Q_OBJECT
-public:
-  OccupancyMapDisplay();
-  virtual ~OccupancyMapDisplay();
+  class OccupancyMapDisplay : public rviz::MapDisplay
+  {
+    Q_OBJECT
+  public:
+    OccupancyMapDisplay();
+    virtual ~OccupancyMapDisplay();
 
-private Q_SLOTS:
-  void updateTopic();
-  void updateTreeDepth();
+  private Q_SLOTS:
+    void updateTopic();
+    void updateTreeDepth();
 
-protected:
-  virtual void onInitialize();
-  virtual void subscribe();
-  virtual void unsubscribe();
+  protected:
+    virtual void onInitialize();
+    virtual void subscribe();
+    virtual void unsubscribe();
 
-  virtual void handleOctomapBinaryMessage(const octomap_msgs::OctomapConstPtr& msg) = 0;
+    virtual void handleSocialOctomapBinaryMessage(const social_octomap_msgs::SocialOctomapConstPtr &msg) = 0;
 
-  boost::shared_ptr<message_filters::Subscriber<octomap_msgs::Octomap> > sub_;
+    boost::shared_ptr<message_filters::Subscriber<social_octomap_msgs::SocialOctomap>> sub_;
 
-  unsigned int octree_depth_;
-  rviz::IntProperty* tree_depth_property_;
-};
+    unsigned int octree_depth_;
+    rviz::IntProperty *tree_depth_property_;
+  };
 
-template <typename OcTreeType>
-class TemplatedOccupancyMapDisplay: public OccupancyMapDisplay {
-protected:
-    void handleOctomapBinaryMessage(const octomap_msgs::OctomapConstPtr& msg);
-};
+  template <typename OcTreeType>
+  class TemplatedOccupancyMapDisplay : public OccupancyMapDisplay
+  {
+  protected:
+    void handleSocialOctomapBinaryMessage(const social_octomap_msgs::SocialOctomapConstPtr &msg);
+  };
 
 } // namespace rviz
 
- #endif
+#endif

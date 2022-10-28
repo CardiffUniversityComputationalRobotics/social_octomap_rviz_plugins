@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(octomap_rviz_plugins)
+project(social_octomap_rviz_plugins)
 
-find_package(catkin REQUIRED COMPONENTS octomap_msgs
+find_package(catkin REQUIRED COMPONENTS social_octomap_msgs
                                         roscpp
                                         rviz
                                         
 )
 
-find_package(octomap REQUIRED)
+find_package(social_octomap REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread )
 
 find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
@@ -20,21 +20,21 @@ add_definitions(-DQT_NO_KEYWORDS)
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
-    CATKIN_DEPENDS octomap_msgs
+    CATKIN_DEPENDS social_octomap_msgs
                    roscpp
                    rviz
-    DEPENDS OCTOMAP
+    DEPENDS SOCIAL_OCTOMAP
 )
                                         
 
 include_directories(include 
                     ${catkin_INCLUDE_DIRS} 
                     ${Boost_INCLUDE_DIRS} 
-                    ${OCTOMAP_INCLUDE_DIRS})
+                    ${SOCIAL_OCTOMAP_INCLUDE_DIRS})
 
 link_directories(${catkin_LIBRARY_DIRS}
                  ${Boost_LIBRARY_DIRS}
-                 ${OCTOMAP_LIBRARY_DIRS}) 
+                 ${SOCIAL_OCTOMAP_LIBRARY_DIRS}) 
 
 
 set(SOURCE_FILES
@@ -43,12 +43,12 @@ set(SOURCE_FILES
 )
 
 set(HEADER_FILES
-  include/octomap_rviz_plugins/occupancy_grid_display.h
-  include/octomap_rviz_plugins/occupancy_map_display.h
+  include/social_octomap_rviz_plugins/occupancy_grid_display.h
+  include/social_octomap_rviz_plugins/occupancy_map_display.h
 )
 
 add_library(${PROJECT_NAME} MODULE ${SOURCE_FILES} ${HEADER_FILES})
-target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${Boost_LIBRARIES} ${OCTOMAP_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${Boost_LIBRARIES} ${SOCIAL_OCTOMAP_LIBRARIES} ${catkin_LIBRARIES})
 target_compile_options(${PROJECT_NAME} PUBLIC "-Wno-register") # Avoid OGRE deprecaton warnings under C++17
 
 install(DIRECTORY include/${PROJECT_NAME}/
